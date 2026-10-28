@@ -1,5 +1,6 @@
 
 import CourthouseMap from '@/components/CourthouseMap';
+import CourthouseSearch from '@/components/CourthouseSearch';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 
@@ -29,68 +30,13 @@ export default async function Home() {
           </p>
         </header>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <div className="mb-6">
-            <h2 className="text-2xl font-semibold text-slate-900">
-              Courthouse locations
-            </h2>
-
-            {!error && (
-              <p className="mt-2 text-slate-600">
-                {courthouses?.length ?? 0}{' '}
-                {(courthouses?.length ?? 0) === 1
-                  ? 'location'
-                  : 'locations'}{' '}
-                available
-              </p>
-            )}
-          </div>
-
+        <section>
           {error ? (
             <p role="alert" className="text-red-700">
               Courthouse locations could not be loaded. Please try again later.
             </p>
           ) : (
-            <>
-              <div className="mb-8">
-                <CourthouseMap courthouses={courthouses ?? []} />
-              </div>
-
-              {courthouses && courthouses.length > 0 ? (
-                <ul className="divide-y divide-slate-200">
-                  {courthouses.map((courthouse) => (
-                    <li
-                      key={courthouse.id}
-                      className="py-5 first:pt-0 last:pb-0"
-                    >
-                      <h3 className="text-lg font-semibold text-slate-900">
-                        {courthouse.name}
-                      </h3>
-
-                      <p className="mt-1 text-slate-600">
-                        {courthouse.address}
-                      </p>
-
-                      {courthouse.latitude != null &&
-                        courthouse.longitude != null && (
-                          <a
-                            className="mt-3 inline-block text-sm font-medium text-blue-700 hover:text-blue-900"
-                            href={`https://www.google.com/maps/search/?api=1&query=${courthouse.latitude},${courthouse.longitude}`}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            View on Google Maps
-                          </a>
-                        )}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-slate-600">
-                  No active courthouse locations are available yet.
-                </p>
-              )}
-            </>
+            <CourthouseSearch initialCourthouses={courthouses ?? []} />
           )}
         </section>
 

@@ -19,12 +19,17 @@ export type CourthouseMapLocation = {
 
 type CourthouseMapProps = {
   courthouses: CourthouseMapLocation[];
+  searchCenter?: {
+    lat: number;
+    lng: number;
+  } | null;
 };
 
 const DEFAULT_CENTER = { lat: 34.0549, lng: -118.2436 };
 
 export default function CourthouseMap({
   courthouses,
+  searchCenter = null,
 }: CourthouseMapProps) {
   const [selectedId, setSelectedId] = useState<string | number | null>(
     null
@@ -44,15 +49,6 @@ export default function CourthouseMap({
 
   return (
     <section className="space-y-3">
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-        Map component loaded.
-        <br />
-        Active courthouse records: {courthouses.length}
-        <br />
-        Locations with coordinates: {mappableCourthouses.length}
-        <br />
-        Browser API key: {apiKey ? 'Configured' : 'Missing'}
-      </div>
 
       {!apiKey ? (
         <p role="alert" className="rounded-lg bg-red-50 p-4 text-red-700">
@@ -71,11 +67,11 @@ export default function CourthouseMap({
             }}
             >
             <Map
-              defaultCenter={DEFAULT_CENTER}
-              defaultZoom={10}
-              mapId="DEMO_MAP_ID"
-              gestureHandling="greedy"
-              style={{ width: '100%', height: '100%' }}
+            center={searchCenter ?? DEFAULT_CENTER}
+            defaultZoom={9}
+            mapId="DEMO_MAP_ID"
+            gestureHandling="greedy"
+            style={{ width: '100%', height: '100%' }}
             >
               {mappableCourthouses.map((courthouse) => (
                 <AdvancedMarker

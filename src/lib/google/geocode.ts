@@ -1,8 +1,8 @@
-
 type GeocodingResult = {
   latitude: number;
   longitude: number;
   placeId: string;
+  county: string | null;
 };
 
 type GoogleGeocodingResponse = {
@@ -10,6 +10,11 @@ type GoogleGeocodingResponse = {
   error_message?: string;
   results?: Array<{
     place_id: string;
+    address_components: Array<{
+      long_name: string;
+      short_name: string;
+      types: string[];
+    }>;
     geometry: {
       location: {
         lat: number;
@@ -18,6 +23,7 @@ type GoogleGeocodingResponse = {
     };
   }>;
 };
+
 
 export async function geocodeAddress(
   address: string
@@ -77,9 +83,16 @@ export async function geocodeAddress(
     throw new Error('Google returned invalid coordinates.');
   }
 
+
+  const countyComponent = match.address_components.find((component) =>
+    component.types.includes('administrative_area_level_2')
+  );
+
   return {
     latitude: lat,
     longitude: lng,
     placeId: match.place_id,
+    county: countyComponent?.long_name ?? null,
   };
+
 }
