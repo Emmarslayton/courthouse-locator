@@ -61,8 +61,8 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     save: 'The change could not be saved. Please try again.',
     invalid: 'The courthouse request was invalid.',
     notfound: 'The courthouse was not found or is already inactive.',
-    updated: 'Courthouse updated successfully.',
-    reactivated: 'Courthouse reactivated successfully.',
+    geocode:
+      'Google could not verify this address. Check the street address, city, state, and ZIP code, then try again.',
   };
 
   return (
@@ -98,6 +98,24 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             Courthouse deactivated successfully.
           </p>
         )}
+
+        {params.success === 'created' && (
+            <p
+              role="status"
+              className="mt-6 rounded-lg bg-green-50 p-4 text-green-800"
+            >
+              Courthouse created and address verified successfully.
+            </p>
+          )}
+
+          {params.success === 'updated' && (
+            <p
+              role="status"
+              className="mt-6 rounded-lg bg-green-50 p-4 text-green-800"
+            >
+              Courthouse updated and address verified successfully.
+            </p>
+          )}
 
         {params.error && (
           <p role="alert" className="mt-6 rounded-lg bg-red-50 p-4 text-red-800">

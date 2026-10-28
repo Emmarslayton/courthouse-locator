@@ -1,6 +1,7 @@
 
 'use server';
 
+import { geocodeAddress } from '@/lib/google/geocode';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -33,17 +34,39 @@ export async function createCourthouse(formData: FormData) {
   const name = String(formData.get('name') ?? '').trim();
   const address = String(formData.get('address') ?? '').trim();
 
-  if (!name || !address) {
-    redirect('/admin?error=required');
+  if (
+    !name ||
+    !address ||
+    name.length > 150 ||
+    address.length > 300
+  ) {
+    redirect('/admin?error=invalid');
   }
 
   const supabase = await requireAdmin();
+
+  let geocoded: Awaited<ReturnType<typeof geocodeAddress>>;
+
+  try {
+    geocoded = await geocodeAddress(address);
+  } catch (error) {
+    console.error(
+      'Failed to geocode courthouse address:',
+      error instanceof Error ? error.message : 'Unknown error'
+    );
+
+    redirect('/admin?error=geocode');
+  }
 
   const { error } = await supabase
     .from('courthouse_locations')
     .insert({
       name,
       address,
+      latitude: geocoded.latitude,
+      longitude: geocoded.longitude,
+      google_place_id: geocoded.placeId,
+      geocoded_at: new Date().toISOString(),
       active: true,
     });
 
@@ -90,17 +113,41 @@ export async function updateCourthouse(formData: FormData) {
   const name = String(formData.get('name') ?? '').trim();
   const address = String(formData.get('address') ?? '').trim();
 
-  if (!id || !name || !address || name.length > 150 || address.length > 300) {
+  if (
+    !id ||
+    !name ||
+    !address ||
+    name.length > 150 ||
+    address.length > 300
+  ) {
     redirect('/admin?error=invalid');
   }
 
   const supabase = await requireAdmin();
+
+  // Geocode first so a failed lookup cannot partially update the record.
+  let geocoded: Awaited<ReturnType<typeof geocodeAddress>>;
+
+  try {
+    geocoded = await geocodeAddress(address);
+  } catch (error) {
+    console.error(
+      'Failed to geocode updated courthouse address:',
+      error instanceof Error ? error.message : 'Unknown error'
+    );
+
+    redirect('/admin?error=geocode');
+  }
 
   const { data, error } = await supabase
     .from('courthouse_locations')
     .update({
       name,
       address,
+      latitude: geocoded.latitude,
+      longitude: geocoded.longitude,
+      google_place_id: geocoded.placeId,
+      geocoded_at: new Date().toISOString(),
     })
     .eq('id', id)
     .select('id');
