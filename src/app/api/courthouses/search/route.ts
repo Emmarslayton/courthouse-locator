@@ -11,6 +11,8 @@ type Courthouse = {
   address: string;
   latitude: number | null;
   longitude: number | null;
+  image_url: string | null;
+  website_url: string | null;
 };
 
 function calculateDistanceMiles(
@@ -64,21 +66,22 @@ export async function POST(request: Request) {
     const location = await geocodeAddress(address);
 
     if (location.county !== 'Los Angeles County') {
-    return NextResponse.json(
+      return NextResponse.json(
         {
-        error:
+          error:
             'Please enter an address, city, or ZIP code within Los Angeles County, California.',
         },
         { status: 400 }
-    );
+      );
     }
-
 
     const supabase = await createClient();
 
     const { data, error } = await supabase
       .from('courthouse_locations')
-      .select('id, name, address, latitude, longitude')
+      .select(
+        'id, name, address, latitude, longitude, image_url, website_url'
+      )
       .eq('active', true);
 
     if (error) {
@@ -139,7 +142,10 @@ export async function POST(request: Request) {
       message.includes('Unable to geocode')
     ) {
       return NextResponse.json(
-        { error: 'We could not find that location. Check the address or ZIP code and try again.' },
+        {
+          error:
+            'We could not find that location. Check the address or ZIP code and try again.',
+        },
         { status: 400 }
       );
     }
@@ -147,7 +153,10 @@ export async function POST(request: Request) {
     console.error('Courthouse search failed:', message);
 
     return NextResponse.json(
-      { error: 'The courthouse search is temporarily unavailable. Please try again.' },
+      {
+        error:
+          'The courthouse search is temporarily unavailable. Please try again.',
+      },
       { status: 500 }
     );
   }

@@ -28,12 +28,15 @@ const errorMessages: Record<string, string> = {
   unauthorized: 'You are not authorized to access the admin panel.',
   invalid_address:
     'The address could not be verified. Please check it and try again.',
-  geocoding_failed:
-    'We could not verify the address. Please try again.',
+  geocoding_failed: 'We could not verify the address. Please try again.',
   create_failed: 'Could not create the courthouse. Please try again.',
   update_failed: 'Could not update the courthouse. Please try again.',
   deactivate_failed: 'Could not deactivate the courthouse. Please try again.',
   reactivate_failed: 'Could not reactivate the courthouse. Please try again.',
+  invalid: 'Please check the fields and ensure URLs begin with http:// or https://.',
+  geocode: 'We could not verify the address. Please check it and try again.',
+  save: 'Could not save the courthouse. Please try again.',
+  notfound: 'The courthouse could not be found. Refresh and try again.',
 };
 
 export default async function AdminPage({
@@ -66,7 +69,7 @@ export default async function AdminPage({
   const { data: courthouses, error: courthouseError } = await supabase
     .from('courthouse_locations')
     .select(
-      'id, name, address, latitude, longitude, active, created_at'
+      'id, name, address, latitude, longitude, active, created_at, image_url, website_url'
     )
     .order('name', { ascending: true });
 
@@ -134,9 +137,7 @@ export default async function AdminPage({
           <div className={styles.statCard}>
             <div className={styles.statLabel}>Total locations</div>
             <div className={styles.statValue}>{locations.length}</div>
-            <div className={styles.statDescription}>
-              All courthouse records
-            </div>
+            <div className={styles.statDescription}>All courthouse records</div>
           </div>
 
           <div className={styles.statCard}>
@@ -198,6 +199,35 @@ export default async function AdminPage({
                   className={styles.input}
                 />
               </div>
+
+              <div className={styles.field}>
+                <label htmlFor="new-image-url" className={styles.label}>
+                  Image URL <span>(optional)</span>
+                </label>
+                <input
+                  id="new-image-url"
+                  name="image_url"
+                  type="url"
+                  placeholder="https://example.com/courthouse.jpg"
+                  className={styles.input}
+                />
+                <p className={styles.helperText}>
+                  Paste a link to an existing hosted image. No file upload.
+                </p>
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor="new-website-url" className={styles.label}>
+                  Courthouse website <span>(optional)</span>
+                </label>
+                <input
+                  id="new-website-url"
+                  name="website_url"
+                  type="url"
+                  placeholder="https://www.example.gov/courthouse"
+                  className={styles.input}
+                />
+              </div>
             </div>
 
             <div className={styles.formFooter}>
@@ -224,7 +254,8 @@ export default async function AdminPage({
             </div>
 
             <span className={styles.countBadge}>
-              {locations.length} {locations.length === 1 ? 'location' : 'locations'}
+              {locations.length}{' '}
+              {locations.length === 1 ? 'location' : 'locations'}
             </span>
           </div>
 
@@ -234,17 +265,12 @@ export default async function AdminPage({
                 ⌖
               </div>
               <h3>No courthouse locations yet</h3>
-              <p>
-                Add your first courthouse using the form above.
-              </p>
+              <p>Add your first courthouse using the form above.</p>
             </div>
           ) : (
             <div className={styles.locationList}>
               {locations.map((courthouse, index) => (
-                <article
-                  key={courthouse.id}
-                  className={styles.locationCard}
-                >
+                <article key={courthouse.id} className={styles.locationCard}>
                   <div className={styles.locationCardHeader}>
                     <div className={styles.locationIdentity}>
                       <span className={styles.locationIndex}>
@@ -305,15 +331,8 @@ export default async function AdminPage({
                     </div>
                   </div>
 
-                  <form
-                    action={updateCourthouse}
-                    className={styles.editForm}
-                  >
-                    <input
-                      type="hidden"
-                      name="id"
-                      value={courthouse.id}
-                    />
+                  <form action={updateCourthouse} className={styles.editForm}>
+                    <input type="hidden" name="id" value={courthouse.id} />
 
                     <div className={styles.formGrid}>
                       <div className={styles.field}>
@@ -349,13 +368,47 @@ export default async function AdminPage({
                           className={styles.input}
                         />
                       </div>
+
+                      <div className={styles.field}>
+                        <label
+                          htmlFor={`image-url-${courthouse.id}`}
+                          className={styles.label}
+                        >
+                          Image URL <span>(optional)</span>
+                        </label>
+                        <input
+                          id={`image-url-${courthouse.id}`}
+                          name="image_url"
+                          type="url"
+                          defaultValue={courthouse.image_url ?? ''}
+                          placeholder="https://example.com/courthouse.jpg"
+                          className={styles.input}
+                        />
+                        <p className={styles.helperText}>
+                          Link to an existing hosted image. No upload required.
+                        </p>
+                      </div>
+
+                      <div className={styles.field}>
+                        <label
+                          htmlFor={`website-url-${courthouse.id}`}
+                          className={styles.label}
+                        >
+                          Courthouse website <span>(optional)</span>
+                        </label>
+                        <input
+                          id={`website-url-${courthouse.id}`}
+                          name="website_url"
+                          type="url"
+                          defaultValue={courthouse.website_url ?? ''}
+                          placeholder="https://www.example.gov/courthouse"
+                          className={styles.input}
+                        />
+                      </div>
                     </div>
 
                     <div className={styles.locationActions}>
-                      <button
-                        type="submit"
-                        className={styles.primaryButton}
-                      >
+                      <button type="submit" className={styles.primaryButton}>
                         Save changes
                       </button>
                     </div>

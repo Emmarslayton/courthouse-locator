@@ -9,6 +9,8 @@ import styles from '@/app/CourthouseLocator.module.css';
 
 type SearchResult = CourthouseMapLocation & {
   distanceMiles: number;
+  image_url?: string | null;
+  website_url?: string | null;
 };
 
 type SearchResponse = {
@@ -35,6 +37,11 @@ export default function CourthouseSearch({
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [activeMenuId, setActiveMenuId] = useState<string | number | null>(
+    null
+  );
+  const [copiedId, setCopiedId] = useState<string | number | null>(null);
+  const [copyError, setCopyError] = useState('');
 
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -47,6 +54,9 @@ export default function CourthouseSearch({
     setLoading(true);
     setError('');
     setSearched(false);
+    setActiveMenuId(null);
+    setCopiedId(null);
+    setCopyError('');
 
     try {
       const response = await fetch('/api/courthouses/search', {
@@ -76,6 +86,22 @@ export default function CourthouseSearch({
     }
   }
 
+  async function copyAddress(
+    id: string | number,
+    courthouseAddress: string
+  ) {
+    try {
+      await navigator.clipboard.writeText(courthouseAddress);
+      setCopiedId(id);
+      setCopyError('');
+    } catch {
+      setCopyError(
+        'Could not copy automatically. Please select and copy the address.'
+      );
+      setCopiedId(null);
+    }
+  }
+
   const mapCourthouses: CourthouseMapLocation[] = searched
     ? results
     : initialCourthouses;
@@ -86,7 +112,11 @@ export default function CourthouseSearch({
     <div className={styles.searchExperience}>
       <div className={styles.mapRegion}>
         <CourthouseMap
-          key={searched ? `${searchCenter?.lat},${searchCenter?.lng}` : 'initial'}
+          key={
+            searched
+              ? `${searchCenter?.lat},${searchCenter?.lng}`
+              : 'initial'
+          }
           courthouses={mapCourthouses}
           searchCenter={searchCenter}
         />
@@ -143,9 +173,9 @@ export default function CourthouseSearch({
         </form>
 
         {!searched && !loading && !error && (
-        <p className={styles.searchInstruction}>
+          <p className={styles.searchInstruction}>
             Enter your address, city, or ZIP code to find the nearest courthouse.
-        </p>
+          </p>
         )}
 
         {loading && (
@@ -167,13 +197,11 @@ export default function CourthouseSearch({
           aria-label="Courthouse results"
           aria-live="polite"
         >
-          {searched && (
-            <p className={styles.resultsSummary}>
-              {results.length === 0
-                ? 'No nearby courthouses are available in our current directory.'
-                : `${results.length} ${results.length === 1 ? 'court' : 'courts'} found`}
-            </p>
-          )}
+          <p className={styles.resultsSummary}>
+            {results.length === 0
+              ? 'No nearby courthouses are available in our current directory.'
+              : `${results.length} ${results.length === 1 ? 'court' : 'courts'} found`}
+          </p>
 
           {cards.length === 0 ? (
             <p className={styles.emptyState}>
@@ -192,60 +220,182 @@ export default function CourthouseSearch({
                   ? `https://www.google.com/maps/dir/?api=1&origin=${searchCenter.lat},${searchCenter.lng}&destination=${encodeURIComponent(destination)}`
                   : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destination)}`;
 
-                const distance =
-                  'distanceMiles' in courthouse
-                    ? courthouse.distanceMiles
-                    : null;
+                                    const isMenuOpen = activeMenuId === courthouse.id;
+                                    const isCopied = copiedId === courthouse.id;
 
-                return (
-                  <article
-                    key={courthouse.id}
-                    className={`${styles.courthouseCard} ${
-                      index === 0 ? styles.featuredCard : styles.compactCard
-                    }`}
-                  >
-                    <div className={styles.photoPlaceholder} aria-hidden="true">
-                      <svg
-                        viewBox="0 0 48 48"
-                        width="38"
-                        height="38"
+                                    return (
+                                    <article
+                                        key={courthouse.id}
+                                        className={`${styles.courthouseCard} ${
+                                        index === 0 ? styles.featuredCard : styles.compactCard
+                                        }`}
+                                    >
+                                        <div className={styles.photoPlaceholder}>
+                                        {courthouse.image_url ? (
+                    <img
+                        src={courthouse.image_url}
+                        alt={`${courthouse.name} courthouse`}
+                        className={styles.courthouseImage}
+                        onError={(event) => {
+                        event.currentTarget.style.display = 'none';
+
+                        const fallback = event.currentTarget
+                            .nextElementSibling as HTMLElement | null;
+
+                        if (fallback) {
+                            fallback.style.display = 'flex';
+                        }
+                        }}
+                    />
+                    ) : null}
+
+                    <div
+                    className={styles.courthouseImageFallback}
+                    style={{
+                        display: courthouse.image_url ? 'none' : 'flex',
+                    }}
+                    aria-label="Courthouse image unavailable"
+                    >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="36"
+                        height="36"
+                        viewBox="0 0 24 24"
                         fill="none"
-                      >
-                        <path
-                          d="M6 18 24 7l18 11M10 20h28M13 20v17m7-17v17m8-17v17m7-17v17M8 39h32"
-                          stroke="currentColor"
-                          strokeWidth="1.6"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                    >
+                        <path d="M3 21h18" />
+                        <path d="M5 21V8l7-5 7 5v13" />
+                        <path d="M9 21v-6h6v6" />
+                        <path d="M9 10h.01M15 10h.01" />
+                    </svg>
+                    </div>
                     </div>
 
                     <div className={styles.cardBody}>
                       {index === 0 && (
-                        <p className={styles.cardEyebrow}>
-                          {searched ? 'Closest court' : 'Courthouse'}
-                        </p>
+                        <p className={styles.cardEyebrow}>Closest court</p>
                       )}
 
                       <h2 className={styles.cardTitle}>{courthouse.name}</h2>
 
-                      {distance != null && (
-                        <p className={styles.cardDistance}>
-                          {distance.toFixed(1)} mi away
-                        </p>
-                      )}
+                      <p className={styles.cardDistance}>
+                        {courthouse.distanceMiles.toFixed(1)} mi away
+                      </p>
 
                       <p className={styles.cardAddress}>{courthouse.address}</p>
 
-                      <a
-                        href={directionsUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className={styles.directionsButton}
-                      >
-                        Get Directions
-                      </a>
+                      {courthouse.website_url && (
+                        <a
+                          href={courthouse.website_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={styles.websiteLink}
+                        >
+                          Official Website ↗
+                        </a>
+                      )}
+
+                      <div className={styles.cardActionRow}>
+                        <a
+                          href={directionsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={styles.directionsButton}
+                        >
+                          Get Directions
+                        </a>
+
+                        <button
+                          type="button"
+                          className={styles.moreActionsButton}
+                          aria-label={`More actions for ${courthouse.name}`}
+                          aria-expanded={isMenuOpen}
+                          aria-haspopup="dialog"
+                          onClick={() => {
+                            setActiveMenuId(
+                              isMenuOpen ? null : courthouse.id
+                            );
+                            setCopiedId(null);
+                            setCopyError('');
+                          }}
+                        >
+                          ...
+                        </button>
+                      </div>
+
+                      {isMenuOpen && (
+                        <div
+                          className={styles.menuOverlay}
+                          role="presentation"
+                          onClick={() => setActiveMenuId(null)}
+                        >
+                          <section
+                            className={styles.actionMenu}
+                            role="dialog"
+                            aria-modal="true"
+                            aria-label={`Actions for ${courthouse.name}`}
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <div className={styles.actionMenuHeader}>
+                              <h3>{courthouse.name}</h3>
+                              <button
+                                type="button"
+                                className={styles.closeMenuButton}
+                                aria-label="Close actions"
+                                onClick={() => setActiveMenuId(null)}
+                              >
+                                ×
+                              </button>
+                            </div>
+
+                            <p className={styles.actionMenuAddress}>
+                              {courthouse.address}
+                            </p>
+
+                            <button
+                              type="button"
+                              className={styles.menuActionButton}
+                              onClick={() =>
+                                copyAddress(
+                                  courthouse.id,
+                                  courthouse.address
+                                )
+                              }
+                            >
+                              {isCopied ? '✓ Address copied' : 'Copy address'}
+                            </button>
+
+                            {copyError && (
+                              <p className={styles.menuError} role="alert">
+                                {copyError}
+                              </p>
+                            )}
+
+                            <a
+                              href={directionsUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={styles.menuActionButton}
+                              onClick={() => setActiveMenuId(null)}
+                            >
+                              Get directions ↗
+                            </a>
+
+                            <button
+                              type="button"
+                              className={styles.menuDoneButton}
+                              onClick={() => setActiveMenuId(null)}
+                            >
+                              Done
+                            </button>
+                          </section>
+                        </div>
+                      )}
                     </div>
                   </article>
                 );

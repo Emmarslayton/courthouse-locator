@@ -41,10 +41,6 @@ export default async function Home() {
           />
         )}
       </section>
-
-      <footer className={styles.footer}>
-        <Link href="/admin">Admin area</Link>
-      </footer>
     </main>
   );
 }
