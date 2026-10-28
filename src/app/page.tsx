@@ -1,8 +1,8 @@
 
-import CourthouseMap from '@/components/CourthouseMap';
 import CourthouseSearch from '@/components/CourthouseSearch';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import styles from './CourthouseLocator.module.css';
 
 export default async function Home() {
   const supabase = await createClient();
@@ -14,41 +14,37 @@ export default async function Home() {
     .order('name');
 
   return (
-    <main className="min-h-screen bg-slate-50 px-6 py-16">
-      <div className="mx-auto max-w-5xl">
-        <header className="mb-12">
-          <p className="text-sm font-semibold uppercase tracking-widest text-blue-700">
-            Courthouse Locator
-          </p>
-
-          <h1 className="mt-4 text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
-            Find the right courthouse.
-          </h1>
-
-          <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
-            Explore courthouse locations to help identify where to file your case.
-          </p>
-        </header>
-
-        <section>
-          {error ? (
-            <p role="alert" className="text-red-700">
-              Courthouse locations could not be loaded. Please try again later.
+    <main className={styles.locator}>
+      <header className={styles.header}>
+        <div className={styles.headerContent}>
+          <div>
+            <h1 className={styles.title}>Court Filing Locator</h1>
+            <p className={styles.subtitle}>
+              Enter your address below to find which court you should file at.
             </p>
-          ) : (
-            <CourthouseSearch initialCourthouses={courthouses ?? []} />
-          )}
-        </section>
+          </div>
 
-        <footer className="mt-8">
-          <Link
-            href="/admin"
-            className="text-sm font-medium text-blue-700 hover:text-blue-900"
-          >
-            Admin area
+          <Link href="/admin" className={styles.employeeLogin}>
+            Employee Login
           </Link>
-        </footer>
-      </div>
+        </div>
+      </header>
+
+      <section className={styles.workspace}>
+        {error ? (
+          <p role="alert" className={styles.error}>
+            Courthouse locations could not be loaded. Please try again later.
+          </p>
+        ) : (
+          <CourthouseSearch
+            initialCourthouses={courthouses ?? []}
+          />
+        )}
+      </section>
+
+      <footer className={styles.footer}>
+        <Link href="/admin">Admin area</Link>
+      </footer>
     </main>
   );
 }

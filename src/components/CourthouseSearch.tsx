@@ -5,6 +5,7 @@ import { FormEvent, useState } from 'react';
 import CourthouseMap, {
   CourthouseMapLocation,
 } from '@/components/CourthouseMap';
+import styles from '@/app/CourthouseLocator.module.css';
 
 type SearchResult = CourthouseMapLocation & {
   distanceMiles: number;
@@ -50,9 +51,7 @@ export default function CourthouseSearch({
     try {
       const response = await fetch('/api/courthouses/search', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address: address.trim() }),
       });
 
@@ -70,9 +69,7 @@ export default function CourthouseSearch({
       setSearched(true);
     } catch (err) {
       setError(
-        err instanceof Error
-          ? err.message
-          : 'Search failed. Please try again.'
+        err instanceof Error ? err.message : 'Search failed. Please try again.'
       );
     } finally {
       setLoading(false);
@@ -83,23 +80,40 @@ export default function CourthouseSearch({
     ? results
     : initialCourthouses;
 
+  const cards = searched ? results : [];
+
   return (
-    <div className="space-y-8">
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-        <h2 className="text-2xl font-semibold text-slate-900">
-          Find a courthouse near you
-        </h2>
+    <div className={styles.searchExperience}>
+      <div className={styles.mapRegion}>
+        <CourthouseMap
+          key={searched ? `${searchCenter?.lat},${searchCenter?.lng}` : 'initial'}
+          courthouses={mapCourthouses}
+          searchCenter={searchCenter}
+        />
+      </div>
 
-        <p className="mt-2 text-slate-600">
-          Search by street address, city, or ZIP code.
-        </p>
+      <section className={styles.searchPanel} aria-label="Find a courthouse">
+        <form onSubmit={handleSearch} className={styles.searchForm}>
+          <button
+            type="submit"
+            className={styles.searchIconButton}
+            disabled={loading}
+            aria-label="Search courthouses"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="20"
+              height="20"
+              fill="none"
+              aria-hidden="true"
+            >
+              <circle cx="10.8" cy="10.8" r="6.8" stroke="currentColor" />
+              <path d="m16 16 4.2 4.2" stroke="currentColor" />
+            </svg>
+          </button>
 
-        <form
-          onSubmit={handleSearch}
-          className="mt-6 flex flex-col gap-3 sm:flex-row"
-        >
-          <label htmlFor="courthouse-address" className="sr-only">
-            Address, city, or ZIP code
+          <label htmlFor="courthouse-address" className={styles.visuallyHidden}>
+            Enter your address, city, or ZIP code
           </label>
 
           <input
@@ -108,78 +122,138 @@ export default function CourthouseSearch({
             autoComplete="street-address"
             value={address}
             onChange={(event) => setAddress(event.target.value)}
-            placeholder="Enter an address or ZIP code"
+            placeholder="Enter Your Address..."
             maxLength={200}
-            className="min-w-0 flex-1 rounded-lg border border-slate-300 px-4 py-3 text-slate-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+            className={styles.searchInput}
           />
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded-lg bg-blue-700 px-6 py-3 font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading ? 'Searching…' : 'Find courthouses'}
-          </button>
+          {address && (
+            <button
+              type="button"
+              className={styles.clearButton}
+              onClick={() => {
+                setAddress('');
+                setError('');
+              }}
+              aria-label="Clear address"
+            >
+              ×
+            </button>
+          )}
         </form>
 
+        {!searched && !loading && !error && (
+        <p className={styles.searchInstruction}>
+            Enter your address, city, or ZIP code to find the nearest courthouse.
+        </p>
+        )}
+
+        {loading && (
+          <p className={styles.statusMessage} role="status">
+            Searching for nearby courthouses…
+          </p>
+        )}
+
         {error && (
-          <p role="alert" className="mt-4 text-sm text-red-700">
+          <p className={styles.errorMessage} role="alert">
             {error}
           </p>
         )}
       </section>
 
       {searched && (
-        <section aria-live="polite" className="space-y-4">
-          <div>
-            <h2 className="text-2xl font-semibold text-slate-900">
-              Nearby courthouses
-            </h2>
-            <p className="mt-2 text-slate-600">
+        <aside
+          className={styles.resultsPanel}
+          aria-label="Courthouse results"
+          aria-live="polite"
+        >
+          {searched && (
+            <p className={styles.resultsSummary}>
               {results.length === 0
-                ? 'No nearby courthouses are available in our current directory. We are expanding our coverage.'
-                : `${results.length} ${results.length === 1 ? 'courthouse' : 'courthouses'} found, sorted by distance.`}
+                ? 'No nearby courthouses are available in our current directory.'
+                : `${results.length} ${results.length === 1 ? 'court' : 'courts'} found`}
             </p>
-          </div>
-
-          {results.length > 0 && (
-            <ul className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white px-5">
-              {results.map((courthouse) => (
-                <li key={courthouse.id} className="py-5">
-                  <h3 className="font-semibold text-slate-900">
-                    {courthouse.name}
-                  </h3>
-                  <p className="mt-1 text-slate-600">
-                    {courthouse.address}
-                  </p>
-                  <p className="mt-2 text-sm font-medium text-blue-700">
-                    {courthouse.distanceMiles.toFixed(1)} miles away
-                  </p>
-                  <a
-                    className="mt-2 inline-block text-sm font-medium text-blue-700 hover:text-blue-900"
-                    href={`https://www.google.com/maps/dir/?api=1&origin=${searchCenter?.lat},${searchCenter?.lng}&destination=${courthouse.latitude},${courthouse.longitude}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Get directions
-                  </a>
-                </li>
-              ))}
-            </ul>
           )}
-        </section>
-      )}
 
-      <section>
-        <h2 className="mb-4 text-2xl font-semibold text-slate-900">
-          {searched ? 'Courthouse map' : 'Explore courthouse locations'}
-        </h2>
-        <CourthouseMap
-          key={searched ? `${searchCenter?.lat},${searchCenter?.lng}` : 'initial'}
-          courthouses={mapCourthouses}
-          searchCenter={searchCenter}
-        />
-      </section>
+          {cards.length === 0 ? (
+            <p className={styles.emptyState}>
+              We don't have a courthouse listed for this search yet.
+            </p>
+          ) : (
+            <div className={styles.cardList}>
+              {cards.map((courthouse, index) => {
+                const destination =
+                  courthouse.latitude != null &&
+                  courthouse.longitude != null
+                    ? `${courthouse.latitude},${courthouse.longitude}`
+                    : courthouse.address;
+
+                const directionsUrl = searchCenter
+                  ? `https://www.google.com/maps/dir/?api=1&origin=${searchCenter.lat},${searchCenter.lng}&destination=${encodeURIComponent(destination)}`
+                  : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destination)}`;
+
+                const distance =
+                  'distanceMiles' in courthouse
+                    ? courthouse.distanceMiles
+                    : null;
+
+                return (
+                  <article
+                    key={courthouse.id}
+                    className={`${styles.courthouseCard} ${
+                      index === 0 ? styles.featuredCard : styles.compactCard
+                    }`}
+                  >
+                    <div className={styles.photoPlaceholder} aria-hidden="true">
+                      <svg
+                        viewBox="0 0 48 48"
+                        width="38"
+                        height="38"
+                        fill="none"
+                      >
+                        <path
+                          d="M6 18 24 7l18 11M10 20h28M13 20v17m7-17v17m8-17v17m7-17v17M8 39h32"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </div>
+
+                    <div className={styles.cardBody}>
+                      {index === 0 && (
+                        <p className={styles.cardEyebrow}>
+                          {searched ? 'Closest court' : 'Courthouse'}
+                        </p>
+                      )}
+
+                      <h2 className={styles.cardTitle}>{courthouse.name}</h2>
+
+                      {distance != null && (
+                        <p className={styles.cardDistance}>
+                          {distance.toFixed(1)} mi away
+                        </p>
+                      )}
+
+                      <p className={styles.cardAddress}>{courthouse.address}</p>
+
+                      <a
+                        href={directionsUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={styles.directionsButton}
+                      >
+                        Get Directions
+                      </a>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </aside>
+      )}
     </div>
   );
 }

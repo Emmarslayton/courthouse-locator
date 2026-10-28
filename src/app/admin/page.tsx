@@ -3,11 +3,12 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import {
-    createCourthouse,
-    deactivateCourthouse,
-    updateCourthouse,
-    reactivateCourthouse,
+  createCourthouse,
+  deactivateCourthouse,
+  updateCourthouse,
+  reactivateCourthouse,
 } from './actions';
+import styles from './Admin.module.css';
 
 type AdminPageProps = {
   searchParams: Promise<{
@@ -16,301 +17,391 @@ type AdminPageProps = {
   }>;
 };
 
-export default async function AdminPage({ searchParams }: AdminPageProps) {
+const successMessages: Record<string, string> = {
+  created: 'Courthouse created and address verified successfully.',
+  updated: 'Courthouse updated and address verified successfully.',
+  deactivated: 'Courthouse deactivated successfully.',
+  reactivated: 'Courthouse reactivated successfully.',
+};
+
+const errorMessages: Record<string, string> = {
+  unauthorized: 'You are not authorized to access the admin panel.',
+  invalid_address:
+    'The address could not be verified. Please check it and try again.',
+  geocoding_failed:
+    'We could not verify the address. Please try again.',
+  create_failed: 'Could not create the courthouse. Please try again.',
+  update_failed: 'Could not update the courthouse. Please try again.',
+  deactivate_failed: 'Could not deactivate the courthouse. Please try again.',
+  reactivate_failed: 'Could not reactivate the courthouse. Please try again.',
+};
+
+export default async function AdminPage({
+  searchParams,
+}: AdminPageProps) {
   const params = await searchParams;
   const supabase = await createClient();
 
-  const { data, error: authError } = await supabase.auth.getClaims();
-  const userId = data?.claims?.sub;
+  const {
+    data: { claims },
+  } = await supabase.auth.getClaims();
 
-  if (authError || !userId) {
+  if (!claims) {
     redirect('/login');
   }
 
-  const { data: role, error: roleError } = await supabase
+  const userId = claims.sub;
+
+  const { data: userRole } = await supabase
     .from('user_roles')
     .select('role')
     .eq('user_id', userId)
     .eq('role', 'admin')
     .maybeSingle();
 
-  if (roleError) {
-    return (
-      <main className="min-h-screen bg-slate-50 p-8">
-        <h1 className="text-2xl font-bold text-slate-900">
-          Unable to verify administrator access
-        </h1>
-        <p className="mt-3 text-slate-600">
-          Please try again later.
-        </p>
-      </main>
-    );
-  }
-
-  if (!role) {
+  if (!userRole) {
     redirect('/login?error=unauthorized');
   }
 
-  const { data: courthouses, error: courthousesError } = await supabase
+  const { data: courthouses, error: courthouseError } = await supabase
     .from('courthouse_locations')
-    .select('id, name, address, latitude, longitude, active, created_at')
-    .order('name');
+    .select(
+      'id, name, address, latitude, longitude, active, created_at'
+    )
+    .order('name', { ascending: true });
 
-  const messages: Record<string, string> = {
-    required: 'Enter both a courthouse name and an address.',
-    save: 'The change could not be saved. Please try again.',
-    invalid: 'The courthouse request was invalid.',
-    notfound: 'The courthouse was not found or is already inactive.',
-    geocode:
-      'Google could not verify this address. Check the street address, city, state, and ZIP code, then try again.',
-  };
+  if (courthouseError) {
+    console.error('Failed to load courthouse locations:', courthouseError);
+  }
+
+  const locations = courthouses ?? [];
+  const activeCount = locations.filter((location) => location.active).length;
+  const inactiveCount = locations.length - activeCount;
 
   return (
-    <main className="min-h-screen bg-slate-50 px-6 py-12">
-      <div className="mx-auto max-w-5xl">
-        <Link
-          href="/"
-          className="text-sm font-medium text-blue-700 hover:text-blue-800"
-        >
-          ← Courthouse Locator
-        </Link>
+    <main className={styles.page}>
+      <div className={styles.container}>
+        <header className={styles.header}>
+          <div className={styles.headerTop}>
+            <Link href="/" className={styles.backLink}>
+              ← View public locator
+            </Link>
 
-        <header className="mt-6">
-          <p className="text-sm font-semibold uppercase tracking-widest text-blue-700">
-            Administration
-          </p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
-            Courthouse management
-          </h1>
-          <p className="mt-3 text-slate-600">
-            Add courthouse locations and manage their availability.
-          </p>
+            <span className={styles.adminBadge}>
+              <span className={styles.adminBadgeDot} />
+              Administrator
+            </span>
+          </div>
+
+          <div className={styles.headerContent}>
+            <div>
+              <p className={styles.eyebrow}>COURTHOUSE LOCATOR</p>
+              <h1 className={styles.title}>Admin Dashboard</h1>
+              <p className={styles.subtitle}>
+                Manage courthouse locations, verify addresses, and control
+                which courthouses appear in public search results.
+              </p>
+            </div>
+          </div>
         </header>
 
-        {params.success === 'created' && (
-          <p role="status" className="mt-6 rounded-lg bg-green-50 p-4 text-green-800">
-            Courthouse created successfully.
-          </p>
+        {params.success && successMessages[params.success] && (
+          <div className={styles.alertSuccess} role="status">
+            <span className={styles.alertIcon} aria-hidden="true">
+              ✓
+            </span>
+            {successMessages[params.success]}
+          </div>
         )}
-
-        {params.success === 'deactivated' && (
-          <p role="status" className="mt-6 rounded-lg bg-green-50 p-4 text-green-800">
-            Courthouse deactivated successfully.
-          </p>
-        )}
-
-        {params.success === 'created' && (
-            <p
-              role="status"
-              className="mt-6 rounded-lg bg-green-50 p-4 text-green-800"
-            >
-              Courthouse created and address verified successfully.
-            </p>
-          )}
-
-          {params.success === 'updated' && (
-            <p
-              role="status"
-              className="mt-6 rounded-lg bg-green-50 p-4 text-green-800"
-            >
-              Courthouse updated and address verified successfully.
-            </p>
-          )}
 
         {params.error && (
-          <p role="alert" className="mt-6 rounded-lg bg-red-50 p-4 text-red-800">
-            {messages[params.error] ?? 'Something went wrong. Please try again.'}
-          </p>
+          <div className={styles.alertError} role="alert">
+            <span className={styles.alertIcon} aria-hidden="true">
+              !
+            </span>
+            {errorMessages[params.error] ??
+              'Something went wrong. Please check your information and try again.'}
+          </div>
         )}
 
-        <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-xl font-semibold text-slate-900">
-            Add a courthouse
-          </h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Enter the courthouse name and its street address.
-          </p>
+        {courthouseError && (
+          <div className={styles.alertError} role="alert">
+            Courthouse locations could not be loaded. Please refresh the page.
+          </div>
+        )}
 
-          <form action={createCourthouse} className="mt-6 grid gap-5 sm:grid-cols-2">
+        <section className={styles.statsGrid} aria-label="Courthouse summary">
+          <div className={styles.statCard}>
+            <div className={styles.statLabel}>Total locations</div>
+            <div className={styles.statValue}>{locations.length}</div>
+            <div className={styles.statDescription}>
+              All courthouse records
+            </div>
+          </div>
+
+          <div className={styles.statCard}>
+            <div className={styles.statLabel}>Active locations</div>
+            <div className={styles.statValue}>{activeCount}</div>
+            <div className={styles.statDescription}>
+              Available in public search
+            </div>
+          </div>
+
+          <div className={styles.statCard}>
+            <div className={styles.statLabel}>Inactive locations</div>
+            <div className={styles.statValue}>{inactiveCount}</div>
+            <div className={styles.statDescription}>
+              Hidden from public search
+            </div>
+          </div>
+        </section>
+
+        <section className={styles.panel}>
+          <div className={styles.panelHeader}>
             <div>
-              <label
-                htmlFor="name"
-                className="mb-2 block text-sm font-medium text-slate-700"
-              >
-                Courthouse name
-              </label>
-              <input
-                id="name"
-                name="name"
-                type="text"
-                required
-                maxLength={150}
-                placeholder="e.g. Denver Distribution Center"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-slate-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-              />
+              <p className={styles.eyebrow}>NEW LOCATION</p>
+              <h2 className={styles.panelTitle}>Add a courthouse</h2>
+              <p className={styles.panelDescription}>
+                Add a courthouse using its official name and street address.
+                The address will be verified before it is saved.
+              </p>
+            </div>
+            <span className={styles.sectionNumber}>01</span>
+          </div>
+
+          <form action={createCourthouse} className={styles.createForm}>
+            <div className={styles.formGrid}>
+              <div className={styles.field}>
+                <label htmlFor="new-name" className={styles.label}>
+                  Courthouse name
+                </label>
+                <input
+                  id="new-name"
+                  name="name"
+                  type="text"
+                  required
+                  placeholder="e.g. Stanley Mosk Courthouse"
+                  className={styles.input}
+                />
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor="new-address" className={styles.label}>
+                  Street address
+                </label>
+                <input
+                  id="new-address"
+                  name="address"
+                  type="text"
+                  required
+                  placeholder="e.g. 111 N Hill St, Los Angeles, CA"
+                  className={styles.input}
+                />
+              </div>
             </div>
 
-            <div>
-              <label
-                htmlFor="address"
-                className="mb-2 block text-sm font-medium text-slate-700"
-              >
-                Street address
-              </label>
-              <input
-                id="address"
-                name="address"
-                type="text"
-                required
-                maxLength={300}
-                placeholder="Street, city, state, ZIP"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-slate-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <button
-                type="submit"
-                className="rounded-lg bg-blue-700 px-5 py-3 font-semibold text-white hover:bg-blue-800"
-              >
-                Add courthouse
+            <div className={styles.formFooter}>
+              <p className={styles.helperText}>
+                Use a complete address so the location can be accurately
+                verified.
+              </p>
+              <button type="submit" className={styles.primaryButton}>
+                <span aria-hidden="true">+</span> Add courthouse
               </button>
             </div>
           </form>
         </section>
 
-        <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold text-slate-900">
-              Courthouse locations
-            </h2>
-            <span className="text-sm text-slate-500">
-              {courthouses?.length ?? 0} total
+        <section className={styles.locationsSection}>
+          <div className={styles.locationsHeader}>
+            <div>
+              <p className={styles.eyebrow}>LOCATION DIRECTORY</p>
+              <h2 className={styles.panelTitle}>Manage courthouses</h2>
+              <p className={styles.panelDescription}>
+                Edit courthouse details or change whether a location appears
+                in public search results.
+              </p>
+            </div>
+
+            <span className={styles.countBadge}>
+              {locations.length} {locations.length === 1 ? 'location' : 'locations'}
             </span>
           </div>
 
-          {courthousesError ? (
-            <p role="alert" className="mt-5 text-red-700">
-              Unable to load courthouse records. Check the database connection
-              and permissions.
-            </p>
-          ) : !courthouses || courthouses.length === 0 ? (
-            <p className="mt-5 text-slate-600">
-              No courthouse locations yet. Use the form above to add your first
-              location.
-            </p>
+          {locations.length === 0 ? (
+            <div className={styles.emptyState}>
+              <div className={styles.emptyIcon} aria-hidden="true">
+                ⌖
+              </div>
+              <h3>No courthouse locations yet</h3>
+              <p>
+                Add your first courthouse using the form above.
+              </p>
+            </div>
           ) : (
-            <div className="mt-6 divide-y divide-slate-200">
-              {courthouses.map((courthouse) => (
+            <div className={styles.locationList}>
+              {locations.map((courthouse, index) => (
                 <article
-                key={courthouse.id}
-                className="py-6"
+                  key={courthouse.id}
+                  className={styles.locationCard}
                 >
-                <div className="flex flex-wrap items-center gap-3">
-                    <h3 className="font-semibold text-slate-900">
-                    {courthouse.name}
-                    </h3>
+                  <div className={styles.locationCardHeader}>
+                    <div className={styles.locationIdentity}>
+                      <span className={styles.locationIndex}>
+                        {String(index + 1).padStart(2, '0')}
+                      </span>
+
+                      <div className={styles.locationHeading}>
+                        <h3 className={styles.locationName}>
+                          {courthouse.name}
+                        </h3>
+                        <p className={styles.locationAddress}>
+                          {courthouse.address}
+                        </p>
+                      </div>
+                    </div>
 
                     <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                      className={
                         courthouse.active
-                        ? 'bg-green-50 text-green-800'
-                        : 'bg-slate-100 text-slate-600'
-                    }`}
+                          ? styles.statusActive
+                          : styles.statusInactive
+                      }
                     >
-                    {courthouse.active ? 'Active' : 'Inactive'}
+                      <span className={styles.statusDot} />
+                      {courthouse.active ? 'Active' : 'Inactive'}
                     </span>
-                </div>
+                  </div>
 
-                <form
+                  <div className={styles.locationDetails}>
+                    <div className={styles.detailItem}>
+                      <span className={styles.detailLabel}>Latitude</span>
+                      <span className={styles.detailValue}>
+                        {courthouse.latitude ?? 'Not set'}
+                      </span>
+                    </div>
+
+                    <div className={styles.detailItem}>
+                      <span className={styles.detailLabel}>Longitude</span>
+                      <span className={styles.detailValue}>
+                        {courthouse.longitude ?? 'Not set'}
+                      </span>
+                    </div>
+
+                    <div className={styles.detailItem}>
+                      <span className={styles.detailLabel}>Added</span>
+                      <span className={styles.detailValue}>
+                        {courthouse.created_at
+                          ? new Date(courthouse.created_at).toLocaleDateString(
+                              'en-US',
+                              {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                              }
+                            )
+                          : 'Unknown'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <form
                     action={updateCourthouse}
-                    className="mt-4 grid gap-4 sm:grid-cols-2"
-                >
-                    <input type="hidden" name="id" value={courthouse.id} />
-
-                    <div>
-                    <label
-                        htmlFor={`name-${courthouse.id}`}
-                        className="mb-1 block text-sm font-medium text-slate-700"
-                    >
-                        Courthouse name
-                    </label>
+                    className={styles.editForm}
+                  >
                     <input
-                        id={`name-${courthouse.id}`}
-                        name="name"
-                        type="text"
-                        required
-                        maxLength={150}
-                        defaultValue={courthouse.name}
-                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900"
+                      type="hidden"
+                      name="id"
+                      value={courthouse.id}
                     />
-                    </div>
 
-                    <div>
-                    <label
-                        htmlFor={`address-${courthouse.id}`}
-                        className="mb-1 block text-sm font-medium text-slate-700"
-                    >
-                        Address
-                    </label>
-                    <input
-                        id={`address-${courthouse.id}`}
-                        name="address"
-                        type="text"
-                        required
-                        maxLength={300}
-                        defaultValue={courthouse.address}
-                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900"
-                    />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                    <p className="mb-3 text-xs text-slate-500">
-                        Coordinates:{' '}
-                        {courthouse.latitude != null && courthouse.longitude != null
-                        ? `${courthouse.latitude}, ${courthouse.longitude}`
-                        : 'Not geocoded yet'}
-                    </p>
-
-                    <div className="flex flex-wrap gap-3">
-                        <button
-                        type="submit"
-                        className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+                    <div className={styles.formGrid}>
+                      <div className={styles.field}>
+                        <label
+                          htmlFor={`name-${courthouse.id}`}
+                          className={styles.label}
                         >
+                          Courthouse name
+                        </label>
+                        <input
+                          id={`name-${courthouse.id}`}
+                          name="name"
+                          type="text"
+                          required
+                          defaultValue={courthouse.name}
+                          className={styles.input}
+                        />
+                      </div>
+
+                      <div className={styles.field}>
+                        <label
+                          htmlFor={`address-${courthouse.id}`}
+                          className={styles.label}
+                        >
+                          Street address
+                        </label>
+                        <input
+                          id={`address-${courthouse.id}`}
+                          name="address"
+                          type="text"
+                          required
+                          defaultValue={courthouse.address}
+                          className={styles.input}
+                        />
+                      </div>
+                    </div>
+
+                    <div className={styles.locationActions}>
+                      <button
+                        type="submit"
+                        className={styles.primaryButton}
+                      >
                         Save changes
-                        </button>
+                      </button>
                     </div>
-                    </div>
-                </form>
+                  </form>
 
-                <div className="mt-3">
+                  <div className={styles.statusActions}>
                     {courthouse.active ? (
-                    <form action={deactivateCourthouse}>
-                        <input type="hidden" name="id" value={courthouse.id} />
+                      <form action={deactivateCourthouse}>
+                        <input
+                          type="hidden"
+                          name="id"
+                          value={courthouse.id}
+                        />
                         <button
-                        type="submit"
-                        className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                          type="submit"
+                          className={styles.secondaryButton}
                         >
-                        Deactivate
+                          Deactivate
                         </button>
-                    </form>
+                      </form>
                     ) : (
-                    <form action={reactivateCourthouse}>
-                        <input type="hidden" name="id" value={courthouse.id} />
+                      <form action={reactivateCourthouse}>
+                        <input
+                          type="hidden"
+                          name="id"
+                          value={courthouse.id}
+                        />
                         <button
-                        type="submit"
-                        className="rounded-lg border border-blue-300 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50"
+                          type="submit"
+                          className={styles.reactivateButton}
                         >
-                        Reactivate
+                          Reactivate
                         </button>
-                    </form>
+                      </form>
                     )}
-                </div>
+                  </div>
                 </article>
               ))}
             </div>
           )}
         </section>
+
+        <footer className={styles.footer}>
+          <span>Courthouse Locator</span>
+          <span>Administrative dashboard</span>
+        </footer>
       </div>
     </main>
   );
