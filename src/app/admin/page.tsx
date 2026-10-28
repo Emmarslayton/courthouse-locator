@@ -45,9 +45,8 @@ export default async function AdminPage({
   const params = await searchParams;
   const supabase = await createClient();
 
-  const {
-    data: { claims },
-  } = await supabase.auth.getClaims();
+  const { data, error } = await supabase.auth.getClaims();
+  const claims = data?.claims;
 
   if (!claims) {
     redirect('/login');
